@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <title>WebXR + Three.js AR補正</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+
+  <!-- Three.js + WebXR Button -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/webxr/ARButton.js"></script>
+</head>
+<body>
+  <button id="startAR">Start AR</button>
+
+  <script>
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera();
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.xr.enabled = true;
+    document.body.appendChild(renderer.domElement);
+    document.body.appendChild(ARButton.createButton(renderer));
+
+    // 仮の基準座標（今後はスマホの初期GPSでも可）
+    const gpsBase = { lat: 43.0000, lon: 141.0000 };
+
+    // 緯度経度 → メートル座標に変換
+    function toMeters(lat, lon) {
+      const R = 6378137.0;
+      const x = R * THREE.MathUtils.degToRad(lon);
+      const y = R * Math.log(Math.tan(Math.PI / 4 + THREE.MathUtils.degToRad(lat) / 2));
+      return [x, y];
+    }
+
+    const [baseX, baseY] = toMeters(gpsBase.lat, gpsBase.lon);
+
+    // マーカー読み込み
+    fetch('line_to_points.geojson')
+      .then(resp => resp.json())
+      .then(data => {
+        data.features.forEach(f => {
+          if (f.geometry.type === 'Point') {
+            const [lon, lat] = f.geometry.coordinates;
+            const [x, y] = toMeters(lat, lon);
+            const marker = new THREE.Mesh(
+              new THREE.SphereGeometry(0.3),
+              new THREE.MeshBasicMaterial({ color: 'blue' })
+            );
+            marker.position.set((x - baseX), 0, (y - baseY));
+            scene.add(marker);
+          }
+        });
+      });
+
+    // 描画ループ
+    renderer.setAnimationLoop(() => {
+      renderer.render(scene, camera);
+    });
+
+    // マーカーをタップして補正
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+
+    function onClick(event) {
+      pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
+      pointer.y = - (event.clientY / window.innerHeight) * 2 + 1;
+
+      const cam = renderer.xr.getCamera(camera);
+      raycaster.setFromCamera(pointer, cam);
+
+      const intersects = raycaster.intersectObjects(scene.children);
+      if (intersects.length > 0) {
+        const marker = intersects[0].object;
+
+        const markerWorld = new THREE.Vector3();
+        marker.getWorldPosition(markerWorld);
+
+        const camWorld = new THREE.Vector3();
+        cam.getWorldPosition(camWorld);
+
+        const offset = new THREE.Vector3().subVectors(markerWorld, camWorld);
+        scene.position.sub(offset);
+
+        alert("補正を実行しました！");
+      }
+    }
+    renderer.domElement.addEventListener('click', onClick);
+  </script>
+</body>
+</html>
