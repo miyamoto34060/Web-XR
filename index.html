@@ -13,7 +13,7 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
 
   <style>
-    /* ミニマップ用 iframe（左下表示） */
+    /* ミニマップ用 iframe */
     #miniFrame {
       position: fixed;
       bottom: 10px;
@@ -23,11 +23,18 @@
       border: 1px solid #ccc;
       background: #fff;
       z-index: 10001;
+      transition: all 0.2s;
+    }
+    /* 全画面時 iframe 用クラス */
+    #miniFrame.fullscreen {
+      bottom: 0; left: 0;
+      width: 100vw; height: 100vh;
+      z-index: 20000;
     }
     html, body { margin:0; overflow:hidden; }
     a-scene { width:100vw; height:100vh; }
 
-    /* 再読み込みボタン（右上表示） */
+    /* 再読み込みボタン */
     #reloadBtn {
       position: fixed;
       top: 10px;
@@ -81,6 +88,7 @@
     #confirmNo  { background:#dc3545; color:#fff; }
   </style>
 </head>
+
 <body>
   <!-- ミニマップ埋め込み -->
   <iframe id="miniFrame" src="miniMap.html"></iframe>
@@ -95,7 +103,6 @@
 
   <!-- A-Frame シーン -->
   <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false; gpsCameraMinDistance:0; gpsCameraMaxDistance:1000;">
-    <!-- カメラ映像と背景地図が表示される -->
     <a-camera gps-camera rotation-reader></a-camera>
     <a-entity id="sceneRoot"></a-entity>
   </a-scene>
@@ -106,7 +113,7 @@
       const t = document.getElementById('toast');
       t.textContent = msg; t.style.display = 'block';
       clearTimeout(t._hideTimeout);
-      t._hideTimeout = setTimeout(()=> t.style.display = 'none', dur);
+      t._hideTimeout = setTimeout(() => t.style.display = 'none', dur);
     }
 
     // マーカー配置
@@ -142,10 +149,8 @@
       canvas.addEventListener('click', e => {
         mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
         mouse.y = - (e.clientY / window.innerHeight) * 2 + 1;
-        const camObj = camEl.getObject3D('camera');
-        ray.setFromCamera(mouse, camObj);
-        const meshes = document.querySelectorAll('.calib');
-        const objs = Array.from(meshes).map(el => el.getObject3D('mesh')).filter(m=>m);
+        ray.setFromCamera(mouse, camEl.getObject3D('camera'));
+        const objs = Array.from(document.querySelectorAll('.calib')).map(el=>el.getObject3D('mesh')).filter(m=>m);
         const hits = ray.intersectObjects(objs);
         if (!hits.length){ showToast('マーカーをタップしてください'); return; }
         pendingEl = hits[0].object.el;
@@ -155,10 +160,9 @@
       document.getElementById('confirmYes').onclick = () => {
         document.getElementById('confirmUI').style.display = 'none';
         if(!pendingEl) return;
-        const markerPos = new THREE.Vector3(); pendingEl.object3D.getWorldPosition(markerPos);
-        const camPos = new THREE.Vector3(); camEl.object3D.getWorldPosition(camPos);
-        const offset = new THREE.Vector3().subVectors(markerPos, camPos);
-        root3D.position.sub(offset);
+        const pos = new THREE.Vector3(); pendingEl.object3D.getWorldPosition(pos);
+        const camPos = new THREE.Vector3(); document.querySelector('a-camera').object3D.getWorldPosition(camPos);
+        root3D.position.subVectors(pos, camPos);
         document.querySelectorAll('.calib').forEach(el=>el.removeAttribute('gps-entity-place'));
         showToast('キャリブレーション完了'); pendingEl = null;
       };
@@ -171,15 +175,13 @@
     // 再読み込み
     document.getElementById('reloadBtn').onclick = () => { showToast('再読み込み中…'); location.reload(); };
 
-    // 大幅移動で自動リロード
-    let initLat=null, initLon=null;
-    navigator.geolocation.watchPosition(pos => {
-      const la = pos.coords.latitude, lo = pos.coords.longitude;
-      if(initLat===null){ initLat=la; initLon=lo; }
-      else if( Math.hypot((la-initLat)*111000, (lo-initLon)*111000) > 100 ){
-        showToast('大幅移動検出、再読み込み'); location.reload();
+    // MiniMap 全画面切替メッセージ受信
+    window.addEventListener('message', e => {
+      if (e.data === 'toggleMiniMap') {
+        const fm = document.getElementById('miniFrame');
+        fm.classList.toggle('fullscreen');
       }
-    }, console.error, { enableHighAccuracy:true, maximumAge:1000, timeout:5000 });
+    });
   </script>
 </body>
 </html>
