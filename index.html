@@ -59,11 +59,11 @@
   <iframe id="miniFrame" src="miniMap.html"></iframe>
   <!-- テストオーバーレイ -->
   <div id="testOverlay" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(255,0,0,0.7);color:#fff;padding:8px 16px;z-index:30000;font-size:18px;">
-    TEST: index.html v3
+    TEST: index.html v2
   </div>
   <button id="toggleView">⇔</button>
   
-  <a-scene embedded arjs="sourceType:webcam;debugUIEnabled:false;gpsCameraMinDistance:0;gpsCameraMaxDistance:1000;">
+  <a-scene embedded vr-mode-ui="enabled: false" arjs="sourceType:webcam;debugUIEnabled:false;gpsCameraMinDistance:0;gpsCameraMaxDistance:1000;">
     <a-camera gps-camera rotation-reader></a-camera>
     <a-entity id="sceneRoot"></a-entity>
   </a-scene>
