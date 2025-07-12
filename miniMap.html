@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
     html, body { margin:0; padding:0; overflow:hidden; }
-    #miniMap { width:150px; height:150px; position:fixed; bottom:10px; left:10px; border:1px solid #ccc; z-index:1000; }
+    #miniMap { width:100%; height:100%; }
     .user-arrow {
       width: 0;
       height: 0;
@@ -16,20 +16,24 @@
       border-bottom: 16px solid red;
       transform-origin: 50% 75%;
     }
-    #locateBtn {
-      position:fixed; bottom:170px; left:10px;
-      padding:6px 10px;
-      background:rgba(0,0,0,0.6);
-      color:#fff; border:none; border-radius:4px;
-      cursor:pointer; z-index:1001;
+    .btn {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      padding: 6px 10px;
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      z-index: 1000;
     }
   </style>
 </head>
 <body>
   <div id="miniMap"></div>
-  <button id="locateBtn" style="display:none;">現在地に戻る</button>
+  <button id="locateBtn" class="btn" style="display:none;">現在地に戻る</button>
 
-  <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
     // 地図初期化
@@ -37,7 +41,7 @@
       zoomControl: false,
       attributionControl: false,
       dragging: false
-    }).setView([0, 0], 18);
+    }).setView([0,0], 18);
 
     // 衛星タイル
     L.tileLayer(
@@ -48,39 +52,56 @@
     // ユーザ方向マーカー
     const arrowIcon = L.divIcon({
       html: '<div class="user-arrow"></div>',
-      iconAnchor: [8, 12],
+      iconAnchor: [8,12],
       className: ''
     });
-    const userMarker = L.marker([0, 0], { icon: arrowIcon }).addTo(map);
+    const userMarker = L.marker([0,0], { icon: arrowIcon }).addTo(map);
 
     // GeoJSONマーカー
     fetch('line_to_points.geojson')
-      .then(res => res.json())
-      .then(data => L.geoJSON(data, {
-        pointToLayer: (_, latlng) => L.circleMarker(latlng, { radius: 4, color: 'blue', fillOpacity: 0.8 })
-      }).addTo(map));
+      .then(res=>res.json())
+      .then(data=>{
+        L.geoJSON(data, {
+          pointToLayer: (_,latlng)=>L.circleMarker(latlng,{radius:4,color:'blue',fillOpacity:0.8})
+        }).addTo(map);
+      });
 
     // 位置＆向き更新
+    let isFull = false;
     const locateBtn = document.getElementById('locateBtn');
-    function updatePosition(lat, lon) {
+    function updatePosition(lat, lon){
       userMarker.setLatLng([lat, lon]);
-      map.setView([lat, lon]);
+      if(!isFull) map.setView([lat, lon]);
     }
-    navigator.geolocation.watchPosition(pos => {
-      const { latitude: lat, longitude: lon } = pos.coords;
+    navigator.geolocation.watchPosition(pos=>{
+      const {latitude:lat, longitude:lon} = pos.coords;
       updatePosition(lat, lon);
       locateBtn.style.display = 'block';
-    }, console.error, { enableHighAccuracy: true, maximumAge: 1000, timeout: 5000 });
-
-    window.addEventListener('deviceorientationabsolute', e => {
-      if (e.alpha != null) {
+    }, console.error, {enableHighAccuracy:true, maximumAge:1000, timeout:5000});
+    window.addEventListener('deviceorientationabsolute', e=>{
+      if(e.alpha != null){
         document.querySelector('.user-arrow')
           .style.transform = `rotate(${e.alpha}deg)`;
       }
     });
 
+    // 親 iframe からの切替通知
+    window.addEventListener('message', e=>{
+      if(e.data==='enterFull' || e.data==='exitFull'){
+        isFull = (e.data==='enterFull');
+        if(isFull){
+          map.dragging.enable();
+          locateBtn.style.display = 'block';
+        } else {
+          map.dragging.disable();
+          locateBtn.style.display = 'none';
+        }
+        setTimeout(()=> map.invalidateSize(), 0);
+      }
+    });
+
     // 現在地に戻る
-    locateBtn.addEventListener('click', () => {
+    locateBtn.addEventListener('click', ()=>{
       map.setView(userMarker.getLatLng());
     });
   </script>
