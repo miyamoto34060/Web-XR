@@ -4,65 +4,36 @@
 <head>
   <meta charset="utf-8">
   <title>ミニマップ</title>
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
     html, body { margin:0; padding:0; overflow:hidden; }
-    #miniMap {
-      position: relative;
-      width: 150px;
-      height: 150px;
-      background-size: cover;
-      background-position: center;
-    }
-    #miniMarker {
-      position: absolute;
-      top: 50%; left: 50%;
-      width: 16px; height: 16px;
-      margin: -8px 0 0 -8px;
-      background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><polygon points="8,0 16,16 8,12 0,16" fill="red"/></svg>') no-repeat center center;
-      transform-origin: center center;
-    }
-    #coords {
-      position: absolute;
-      bottom: 2px; left: 2px;
-      color: #fff;
-      background: rgba(0,0,0,0.5);
-      padding: 2px 4px;
-      font-size: 10px;
-      border-radius: 2px;
-      line-height: 1.2;
-    }
+    #miniMap { width:150px; height:150px; }
   </style>
 </head>
 <body>
   <div id="miniMap"></div>
-  <div id="miniMarker"></div>
-  <div id="coords">Lat: --<br>Lng: --<br>Dir: --°</div>
-
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    // APIキーはご自分のものに置き換えてください
-    const API_KEY = 'YOUR_API_KEY';
+    // 地図初期化 (衛星画像タイル)
+    const map = L.map('miniMap', { zoomControl: false, attributionControl: false });
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19
+    }).addTo(map);
 
-    let lastHeading = 0;
+    // マーカー設定
+    const marker = L.circleMarker([0,0], { radius: 6, color: 'red', fillColor: '#f03', fillOpacity: 0.8 }).addTo(map);
 
+    // 位置更新関数
     function updateMiniMap(lat, lon) {
-      document.getElementById('miniMap').style.backgroundImage =
-        `url('https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lon}` +
-        `&zoom=17&size=150x150&maptype=roadmap&key=${API_KEY}')`;
-      document.getElementById('coords').innerHTML =
-        `Lat: ${lat.toFixed(5)}<br>Lng: ${lon.toFixed(5)}<br>Dir: ${lastHeading.toFixed(0)}°`;
+      map.setView([lat, lon], 18);
+      marker.setLatLng([lat, lon]);
     }
-
-    // デバイスの向き取得
-    window.addEventListener('deviceorientation', e => {
-      lastHeading = e.alpha || 0;
-      document.getElementById('miniMarker').style.transform =
-        `translate(-50%,-50%) rotate(${lastHeading}deg)`;
-    }, true);
 
     // 現在地取得
     navigator.geolocation.watchPosition(pos => {
-      const lat = pos.coords.latitude;
-      const lon = pos.coords.longitude;
+      const { latitude: lat, longitude: lon } = pos.coords;
       updateMiniMap(lat, lon);
     }, err => console.error(err), {
       enableHighAccuracy: true,
