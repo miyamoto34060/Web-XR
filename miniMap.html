@@ -49,7 +49,6 @@
   <script>
     let isFull = false;
     const body = document.body;
-    const mapDiv = document.getElementById('miniMap');
     const locateBtn = document.getElementById('locateBtn');
 
     // 地図初期化
@@ -62,13 +61,15 @@
 
     // GeoJSONマーカー
     fetch('line_to_points.geojson')
-      .then(res=>res.json())
+      .then(res => res.json())
       .then(data => L.geoJSON(data, { pointToLayer: (_, latlng) => L.circleMarker(latlng, { radius:4, color:'blue', fillOpacity:0.8 }) }).addTo(map));
 
     // 位置＆向き更新
     function updatePosition(lat, lon) {
       userMarker.setLatLng([lat, lon]);
-      if (!isFull) map.setView([lat, lon]);
+      if (!isFull) {
+        map.setView([lat, lon]);
+      }
     }
     navigator.geolocation.watchPosition(pos => {
       const { latitude: lat, longitude: lon } = pos.coords;
@@ -79,13 +80,19 @@
       if (h != null) document.querySelector('.user-arrow').style.transform = `rotate(${h}deg)`;
     });
 
-    // タップで全画面切替
-    mapDiv.addEventListener('click', () => {
+    // 全画面切替（Leaflet イベントを利用）
+    map.on('click', () => {
       isFull = !isFull;
       body.classList.toggle('fullscreen', isFull);
-      map.dragging[isFull ? 'enable' : 'disable']();
-      locateBtn.style.display = isFull ? 'block' : 'none';
-      map.invalidateSize(); // サイズ更新
+      if (isFull) {
+        map.dragging.enable();
+        locateBtn.style.display = 'block';
+      } else {
+        map.dragging.disable();
+        locateBtn.style.display = 'none';
+      }
+      // CSS 適用後にリサイズ再計算
+      setTimeout(() => map.invalidateSize(), 0);
     });
 
     // 現在地に戻るボタン
