@@ -7,91 +7,85 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
     html, body { margin:0; padding:0; overflow:hidden; }
-    #miniMap { width:100%; height:100%; }
+    /* 固定サイズで表示 */
+    #miniMap { width:150px; height:150px; position:fixed; bottom:10px; left:10px; border:1px solid #ccc; z-index:1000; }
     .user-arrow {
-      width:0; height:0;
-      border-left:8px solid transparent;
-      border-right:8px solid transparent;
-      border-bottom:16px solid red;
-      transform-origin:50% 75%;
+      width: 0; height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-bottom: 16px solid red;
+      transform-origin: 50% 75%;
     }
-    #locateBtn {
-      position:absolute; bottom:20px; right:20px;
-      padding:6px 10px; background:rgba(0,0,0,0.6);
-      color:#fff; border:none; border-radius:4px;
-      cursor:pointer; z-index:1000; display:none;
-    }
+    /* 現在地ボタンはフル画面時に親から表示制御 */
+    #locateBtn { display:none; position:fixed; bottom:170px; left:10px; padding:6px 10px; background:rgba(0,0,0,0.6); color:#fff; border:none; border-radius:4px; cursor:pointer; z-index:1001; }
   </style>
 </head>
 <body>
   <div id="miniMap"></div>
   <button id="locateBtn">現在地に戻る</button>
 
+  <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    // --- 初期マップ ---
-    const map = L.map('miniMap', { zoomControl:false, attributionControl:false, dragging:false })
-                 .setView([0,0], 2); // 中心とズームを先に設定して白地図問題を回避
+    // 地図初期化
+    const map = L.map('miniMap', { zoomControl:false, attributionControl:false })
+                  .setView([35.0, 135.0], 15);
 
-    // --- 衛星タイル ---
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      maxZoom:19
-    }).addTo(map);
+    // 衛星タイル
+    L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      { maxZoom: 19 }
+    ).addTo(map);
 
-    // --- ユーザーマーカー ---
-    const arrowIcon = L.divIcon({ html:'<div class="user-arrow"></div>', iconAnchor:[8,12], className:'' });
-    const userMarker = L.marker([0,0], { icon:arrowIcon }).addTo(map);
+    // ユーザーマーカー
+    const arrowIcon = L.divIcon({ html: '<div class="user-arrow"></div>', iconAnchor: [8,12], className: '' });
+    const userMarker = L.marker([0,0], { icon: arrowIcon }).addTo(map);
 
-    // --- GeoJSON マーカー ---
+    // GeoJSON マーカー
     fetch('line_to_points.geojson')
       .then(r=>r.json())
       .then(data=>{
         L.geoJSON(data, {
-          pointToLayer:(_,latlng)=>L.circleMarker(latlng,{radius:4,color:'blue',fillOpacity:0.8})
+          pointToLayer: (_, latlng) => L.circleMarker(latlng, { radius:4, color:'blue', fillOpacity:0.8 })
         }).addTo(map);
       });
 
-    // --- 初期サイズ調整 ---
-    setTimeout(()=>map.invalidateSize(), 0);
+    // 位置更新
+    let isFull = false;
+    const locateBtn = document.getElementById('locateBtn');
 
-    // --- 位置・向き追跡 ---
-    let isFull=false; // 親からの状態を受信
-    const locateBtn=document.getElementById('locateBtn');
+    navigator.geolocation.watchPosition(pos => {
+      const { latitude: lat, longitude: lon } = pos.coords;
+      userMarker.setLatLng([lat, lon]);
+      if (!isFull) {
+        map.setView([lat, lon]);
+      }
+    }, console.error, { enableHighAccuracy:true, maximumAge:1000, timeout:5000 });
 
-    function updatePos(lat, lon){
-      userMarker.setLatLng([lat,lon]);
-      if(!isFull) map.setView([lat,lon], 18);
-    }
-
-    navigator.geolocation.watchPosition(p=>{
-      const {latitude:lat, longitude:lon}=p.coords;
-      updatePos(lat, lon);
-      // 小画面では locateBtn を出さない
-    }, console.error, {enableHighAccuracy:true, maximumAge:1000, timeout:5000});
-
-    window.addEventListener('deviceorientationabsolute', e=>{
-      if(e.alpha!=null){
-        document.querySelector('.user-arrow').style.transform=`rotate(${e.alpha}deg)`;
+    // 向き更新
+    window.addEventListener('deviceorientationabsolute', e => {
+      if (e.alpha != null) {
+        document.querySelector('.user-arrow').style.transform = `rotate(${e.alpha}deg)`;
       }
     });
 
-    // --- 親ページからのメッセージ ---
-    window.addEventListener('message', e=>{
-      if(e.data==='enterFull' || e.data==='exitFull'){
-        isFull = (e.data==='enterFull');
-        if(isFull){
-          map.dragging.enable();
-          locateBtn.style.display='block';
-        } else {
-          map.dragging.disable();
-          locateBtn.style.display='none';
-        }
-        setTimeout(()=>map.invalidateSize(),0);
+    // 親ページからの全画面切替通知
+    window.addEventListener('message', e => {
+      if (e.data === 'enterFull') {
+        isFull = true;
+        map.dragging.enable();
+        locateBtn.style.display = 'block';
+        map.invalidateSize();
+      } else if (e.data === 'exitFull') {
+        isFull = false;
+        map.dragging.disable();
+        locateBtn.style.display = 'none';
+        map.invalidateSize();
       }
     });
 
-    // --- 現在地に戻る ---
-    locateBtn.addEventListener('click', ()=>{
+    // 現在地に戻る
+    locateBtn.addEventListener('click', () => {
       map.setView(userMarker.getLatLng());
     });
   </script>
