@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
     html, body { margin:0; padding:0; overflow:hidden; }
-    #miniMap { width:150px; height:150px; position:relative; cursor: pointer; }
+    #miniMap { width:150px; height:150px; position:relative; cursor: default; }
     .user-arrow {
       width: 0;
       height: 0;
@@ -25,30 +25,34 @@
       z-index: 20000;
       cursor: grab;
     }
-    #locateBtn {
-      display: none;
+    /* ボタン共通 */
+    .btn {
       position: fixed;
-      bottom: 80px;
-      right: 20px;
-      z-index: 20001;
-      padding: 8px;
+      padding: 8px 12px;
       background: rgba(0,0,0,0.6);
       color: #fff;
       border: none;
       border-radius: 4px;
       font-size: 14px;
+      z-index: 20001;
       cursor: pointer;
     }
+    /* トグル全画面ボタン */
+    #toggleBtn { bottom: 170px; left: 10px; }
+    /* 現在地ボタン */
+    #locateBtn { display: none; bottom: 80px; right: 20px; }
   </style>
 </head>
 <body>
   <div id="miniMap"></div>
-  <button id="locateBtn">現在地に戻る</button>
+  <button id="toggleBtn" class="btn">全画面</button>
+  <button id="locateBtn" class="btn">現在地に戻る</button>
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
     let isFull = false;
     const body = document.body;
+    const toggleBtn = document.getElementById('toggleBtn');
     const locateBtn = document.getElementById('locateBtn');
 
     // 地図初期化
@@ -67,9 +71,7 @@
     // 位置＆向き更新
     function updatePosition(lat, lon) {
       userMarker.setLatLng([lat, lon]);
-      if (!isFull) {
-        map.setView([lat, lon]);
-      }
+      if (!isFull) map.setView([lat, lon]);
     }
     navigator.geolocation.watchPosition(pos => {
       const { latitude: lat, longitude: lon } = pos.coords;
@@ -80,10 +82,11 @@
       if (h != null) document.querySelector('.user-arrow').style.transform = `rotate(${h}deg)`;
     });
 
-    // 全画面切替（Leaflet イベントを利用）
-    map.on('click', () => {
+    // 全画面切替ボタン
+    toggleBtn.addEventListener('click', () => {
       isFull = !isFull;
       body.classList.toggle('fullscreen', isFull);
+      toggleBtn.textContent = isFull ? '縮小' : '全画面';
       if (isFull) {
         map.dragging.enable();
         locateBtn.style.display = 'block';
@@ -95,7 +98,7 @@
       setTimeout(() => map.invalidateSize(), 0);
     });
 
-    // 現在地に戻るボタン
+    // 現在地に戻る
     locateBtn.addEventListener('click', () => {
       map.setView(userMarker.getLatLng());
     });
