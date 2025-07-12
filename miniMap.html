@@ -87,6 +87,11 @@
     // 現在地に戻る
     locateBtn.addEventListener('click', () => {
       map.setView(userMarker.getLatLng());
+
+    // ページが完全に描画されたあと再描画
+    window.addEventListener('load', () => {
+      setTimeout(() => map.invalidateSize(), 100);
+      
     });
   </script>
 </body>
