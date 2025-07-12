@@ -2,21 +2,21 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <title>WebXR + Three.js AR補正</title>
+  <title>ARマーカー地面表示（補正済）</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
 
   <!-- A-Frame と AR.js -->
   <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.3.2/aframe/build/aframe-ar.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
-  <!-- look-at コンポーネント（ユーザー方向に向ける） -->
+  <!-- カメラ方向に向かせるためのコンポーネント -->
   <script src="https://unpkg.com/aframe-look-at-component@0.8.0/dist/aframe-look-at-component.min.js"></script>
 
   <style>
     html, body { margin:0; overflow:hidden; }
     a-scene {
-      position:fixed; top:0; left:0;
-      width:100vw; height:100vh;
+      position:fixed;
+      top:0; left:0; width:100vw; height:100vh;
       z-index:1;
     }
 
@@ -50,21 +50,25 @@
 </head>
 <body>
 
-  <!-- ARシーン -->
-  <a-scene embedded vr-mode-ui="enabled:false"
-           arjs="sourceType:webcam;debugUIEnabled:false;gpsCameraMinDistance:0;gpsCameraMaxDistance:1000;">
+  <!-- A-Frame ARシーン -->
+  <a-scene
+    embedded
+    vr-mode-ui="enabled:false"
+    arjs="sourceType:webcam;debugUIEnabled:false;gpsCameraMinDistance:0;gpsCameraMaxDistance:1000;"
+  >
+    <!-- GPSカメラ -->
     <a-camera gps-camera rotation-reader></a-camera>
+
+    <!-- マーカーを追加する親ノード -->
     <a-entity id="sceneRoot"></a-entity>
   </a-scene>
 
-  <!-- MiniMap iframe -->
+  <!-- MiniMap表示 -->
   <iframe id="miniFrame" src="miniMap.html"></iframe>
-
-  <!-- ⇔ 切り替えボタン -->
   <button id="toggleView">⇔</button>
 
   <script>
-    // ⇔ ボタンでAR表示とMiniMap全画面を切り替える
+    // ⇔ ボタンで AR と MiniMap 全画面切り替え
     document.getElementById('toggleView').onclick = () => {
       const fm = document.getElementById('miniFrame');
       const enter = !fm.classList.contains('fullscreen');
@@ -73,7 +77,9 @@
       fm.contentWindow.postMessage(enter ? 'enterFull' : 'exitFull', '*');
     };
 
-    // 初回GPS取得後に地面にマーカーを配置する処理
+    /**
+     * GeoJSONマーカーを地面に自然に表示（浮き防止 + 視線追従）
+     */
     async function addGroundMarkers() {
       try {
         const res = await fetch('line_to_points.geojson');
@@ -82,41 +88,41 @@
 
         geojson.features.forEach(f => {
           if (f.geometry.type !== 'Point') return;
+
           const [lon, lat] = f.geometry.coordinates;
 
-          // マーカー配置用のGPSラップエンティティ
+          // wrapperエンティティ：GPS座標で位置決定（平面投影）
           const wrapper = document.createElement('a-entity');
-          wrapper.setAttribute('gps-entity-place', `latitude: ${lat}; longitude: ${lon}`);
+          wrapper.setAttribute('gps-projected-entity-place', `latitude: ${lat}; longitude: ${lon}`);
 
-          // 実際のマーカー（球体）
+          // marker本体（見える球体）
           const marker = document.createElement('a-sphere');
           marker.setAttribute('radius', '0.5');
           marker.setAttribute('color', 'blue');
-          marker.setAttribute('scale', '0.5 0.5 0.5');           // 小さめに
-          marker.setAttribute('position', '0 -1.5 0');            // 地面に埋め込み補正
-          marker.setAttribute('look-at', '[gps-camera]');         // 常にカメラ方向
+          marker.setAttribute('scale', '1.5 1.5 1.5');             // 小さすぎないよう拡大
+          marker.setAttribute('position', '0 -1.5 0');             // カメラ高さとの差分を地面補正
+          marker.setAttribute('look-at', '[gps-camera]');         // 常にカメラを向く
 
-          // 視覚的に地面感を出すための半透明プレーン
-          const ground = document.createElement('a-plane');
-          ground.setAttribute('width', '2');
-          ground.setAttribute('height', '2');
-          ground.setAttribute('rotation', '-90 0 0');
-          ground.setAttribute('position', '0 -1.6 0');
-          ground.setAttribute('color', '#555');
-          ground.setAttribute('opacity', '0.2');
+          // 地面に接地しているように見せる半透明の影プレーン
+          const shadow = document.createElement('a-plane');
+          shadow.setAttribute('width', '2');
+          shadow.setAttribute('height', '2');
+          shadow.setAttribute('rotation', '-90 0 0');
+          shadow.setAttribute('position', '0 -1.6 0');
+          shadow.setAttribute('color', '#444');
+          shadow.setAttribute('opacity', '0.2');
 
-          // DOMに追加
           wrapper.appendChild(marker);
-          wrapper.appendChild(ground);
+          wrapper.appendChild(shadow);
           root.appendChild(wrapper);
         });
 
-      } catch (err) {
-        console.error('マーカー読み込み失敗:', err);
+      } catch (e) {
+        console.error('マーカー読み込み失敗:', e);
       }
     }
 
-    // GPS初取得時にマーカー表示（1回だけ）
+    // 初回GPS位置取得後にマーカー表示（1回限り）
     document.querySelector('a-camera').addEventListener('gps-camera-update-position', () => {
       addGroundMarkers();
     }, { once: true });
