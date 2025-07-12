@@ -12,86 +12,56 @@
 
   <style>
     html, body { margin:0; overflow:hidden; }
-    a-scene { width:100vw; height:100vh; }
+    a-scene { position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:1; }
 
-    /* ミニマップ用 iframe */
     #miniFrame {
       position: fixed;
       bottom: 10px;
-      left: 10px;
+      right: 10px;
       width: 150px;
       height: 150px;
       border: 1px solid #ccc;
       background: #fff;
-      z-index: 10001;
+      z-index: 2;
       transition: all 0.2s;
     }
-    /* ミニマップ全画面 */
     #miniFrame.fullscreen {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      z-index: 20000;
+      top: 0; left: 0; bottom: 0; right: 0;
+      width: 100vw; height: 100vh;
+      z-index: 3;
     }
 
-    /* 切替ボタン */
     #toggleView {
-      position: fixed;
-      top: 10px;
-      left: 10px;
-      z-index: 20001;
-      width: 36px;
-      height: 36px;
-      background: rgba(0,0,0,0.6);
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      font-size: 24px;
-      line-height: 32px;
-      text-align: center;
-      cursor: pointer;
+      position: fixed; top: 10px; left: 10px;
+      z-index: 4; width: 36px; height: 36px;
+      background: rgba(0,0,0,0.6); color: #fff;
+      border: none; border-radius: 4px;
+      font-size: 24px; line-height: 32px;
+      text-align: center; cursor: pointer;
     }
   </style>
 </head>
 <body>
-  <iframe id="miniFrame" src="miniMap.html"></iframe>
-  <!-- テストオーバーレイ -->
-  <div id="testOverlay" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(255,0,0,0.7);color:#fff;padding:8px 16px;z-index:30000;font-size:18px;">
-    TEST: index.html v22
-  </div>
-  <button id="toggleView">⇔</button>
-  
-  <a-scene embedded vr-mode-ui="enabled: false" arjs="sourceType:webcam;debugUIEnabled:false;gpsCameraMinDistance:0;gpsCameraMaxDistance:1000;">
+  <a-scene embedded vr-mode-ui="enabled:false" arjs="sourceType:webcam;debugUIEnabled:false;gpsCameraMinDistance:0;gpsCameraMaxDistance:1000;">
     <a-camera gps-camera rotation-reader></a-camera>
     <a-entity id="sceneRoot"></a-entity>
   </a-scene>
+
+  <iframe id="miniFrame" src="miniMap.html"></iframe>
+  <button id="toggleView">⇔</button>
 
   <script>
     document.getElementById('toggleView').onclick = () => {
       const fm = document.getElementById('miniFrame');
       const enter = !fm.classList.contains('fullscreen');
       fm.classList.toggle('fullscreen', enter);
-
       if (enter) {
-        // フルスクリーン化
-        fm.style.top = '0';
-        fm.style.left = '0';
-        fm.style.bottom = '';
-        fm.style.width = '100vw';
-        fm.style.height = '100vh';
+        // enter full → hide AR
+        document.querySelector('a-scene').style.display = 'none';
       } else {
-        // 元の右下に復帰
-        fm.style.top = '';
-        fm.style.left = '';
-        fm.style.bottom = '10px';
-        fm.style.right = '10px';
-        fm.style.width = '150px';
-        fm.style.height = '150px';
+        // exit full → show AR
+        document.querySelector('a-scene').style.display = 'block';
       }
-
-      // iframe 内の miniMap に通知
       fm.contentWindow.postMessage(enter ? 'enterFull' : 'exitFull', '*');
     };
   </script>

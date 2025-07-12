@@ -3,74 +3,84 @@
 <head>
   <meta charset="utf-8">
   <title>ミニマップ</title>
-  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
-    html, body { margin:0; padding:0; overflow:hidden; }
-    /* 通常左下150×150 */
-    #miniMap { width:150px; height:150px; position:fixed; bottom:10px; right:10px; border:1px solid #ccc; z-index:1000; box-sizing:border-box; }
-    /* フルスクリーン時 */
-    .fullscreen #miniMap { width:100vw !important; height:100vh !important; top:0 !important; left:0 !important; bottom:auto !important; right:auto !important; }
-    .user-arrow { width:0; height:0; border-left:8px solid transparent; border-right:8px solid transparent; border-bottom:16px solid red; transform-origin:50% 75%; }
-    #locateBtn { display:none; position:fixed; bottom:20px; right:20px; padding:6px 10px; background:rgba(0,0,0,0.6); color:#fff; border:none; border-radius:4px; cursor:pointer; z-index:1001; }
+    html, body { margin:0; padding:0; overflow:hidden; box-sizing:border-box; }
+    #miniMap {
+      position:fixed; bottom:10px; right:10px;
+      width:150px; height:150px;
+      border:1px solid #ccc;
+      z-index:1000;
+    }
+    body.fullscreen #miniMap {
+      position:fixed; top:0; left:0;
+      width:100vw; height:100vh;
+      z-index:20000;
+    }
+    .user-arrow {
+      width:0; height:0;
+      border-left:8px solid transparent;
+      border-right:8px solid transparent;
+      border-bottom:16px solid red;
+      transform-origin:50% 75%;
+    }
+    #locateBtn {
+      display:none; position:fixed;
+      bottom:20px; right:20px;
+      padding:6px 10px; background:rgba(0,0,0,0.6);
+      color:#fff; border:none; border-radius:4px;
+      cursor:pointer; z-index:1001;
+    }
   </style>
 </head>
 <body>
   <div id="miniMap"></div>
   <button id="locateBtn">現在地に戻る</button>
-
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    // マップ初期化
-    const map = L.map('miniMap', { zoomControl:false, attributionControl:false, dragging:false }).setView([35.0, 135.0], 15);
-    // 衛星タイル
+    const map = L.map('miniMap', { zoomControl:false, attributionControl:false, dragging:false });
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom:19 }).addTo(map);
+    map.whenReady(() => map.invalidateSize());
 
-    // 矢印アイコン
     const arrowIcon = L.divIcon({ html:'<div class="user-arrow"></div>', iconAnchor:[8,12], className:'' });
     const userMarker = L.marker([0,0], { icon:arrowIcon }).addTo(map);
 
-    // GeoJSON
-    fetch('line_to_points.geojson').then(r=>r.json()).then(data=>{ L.geoJSON(data, { pointToLayer:(_,latlng)=>L.circleMarker(latlng,{radius:4,color:'blue',fillOpacity:0.8}) }).addTo(map); });
+    fetch('line_to_points.geojson')
+      .then(r=>r.json())
+      .then(data => L.geoJSON(data, {
+        pointToLayer: (_,latlng) => L.circleMarker(latlng,{radius:4,color:'blue',fillOpacity:0.8})
+      }).addTo(map));
 
     let isFull=false;
-    const locateBtn = document.getElementById('locateBtn');
+    const locateBtn=document.getElementById('locateBtn');
 
-    // 位置更新
-    function updatePosition(lat, lon) {
-      userMarker.setLatLng([lat, lon]);
-      if (!isFull) map.setView([lat, lon], 18);
+    function updatePosition(lat,lon){
+      userMarker.setLatLng([lat,lon]);
+      if(!isFull) map.setView([lat,lon],18);
     }
-    navigator.geolocation.watchPosition(pos=>{
-      const { latitude:lat, longitude:lon } = pos.coords;
-      updatePosition(lat, lon);
-    }, console.error, { enableHighAccuracy:true, maximumAge:1000, timeout:5000 });
+    navigator.geolocation.watchPosition(pos=>updatePosition(pos.coords.latitude,pos.coords.longitude),console.error,{enableHighAccuracy:true,maximumAge:1000,timeout:5000});
 
-    // 向き
-    window.addEventListener('deviceorientationabsolute', e=>{ if(e.alpha!=null) document.querySelector('.user-arrow').style.transform=`rotate(${e.alpha}deg)`; });
+    window.addEventListener('deviceorientationabsolute', e=>{
+      if(e.alpha!=null) document.querySelector('.user-arrow').style.transform=`rotate(${e.alpha}deg)`;
+    });
 
-    // メッセージ受信
     window.addEventListener('message', e=>{
-      if (e.data==='enterFull') {
-        isFull=true; map.dragging.enable(); locateBtn.style.display='block'; document.body.classList.add('fullscreen'); map.invalidateSize();
-      } else if (e.data==='exitFull') {
-        isFull=false; map.dragging.disable(); locateBtn.style.display='none'; document.body.classList.remove('fullscreen'); map.invalidateSize();
-      } else if (e.data==='initCenter') {
-        navigator.geolocation.getCurrentPosition(pos=>{
-          updatePosition(pos.coords.latitude, pos.coords.longitude);
-        });
+      if(e.data==='enterFull'){
+        isFull=true;
+        document.body.classList.add('fullscreen');
+        map.dragging.enable(); locateBtn.style.display='block'; map.invalidateSize();
+      } else if(e.data==='exitFull'){
+        isFull=false;
+        document.body.classList.remove('fullscreen');
+        map.dragging.disable(); locateBtn.style.display='none'; map.invalidateSize();
       }
     });
 
-    // 初期自己位置中央
-    window.addEventListener('load', ()=>{
-      navigator.geolocation.getCurrentPosition(pos=>{
-        updatePosition(pos.coords.latitude, pos.coords.longitude);
-      });
-    });
+    locateBtn.addEventListener('click',()=>map.setView(userMarker.getLatLng(),18));
 
-    // 現在地へ
-    locateBtn.addEventListener('click', ()=>{ map.setView(userMarker.getLatLng(), 18); });
+    window.addEventListener('load',()=>{
+      navigator.geolocation.getCurrentPosition(pos=>updatePosition(pos.coords.latitude,pos.coords.longitude));
+    });
   </script>
 </body>
 </html>
