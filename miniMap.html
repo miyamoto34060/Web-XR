@@ -44,6 +44,7 @@
       dragging: false
     }).setView([0,0], 18);
 
+    // 衛星タイル
     L.tileLayer(
       'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
       { maxZoom: 19 }
@@ -59,39 +60,39 @@
 
     // GeoJSONマーカー
     fetch('line_to_points.geojson')
-      .then(r=>r.json())
+      .then(res=>res.json())
       .then(data=>{
         L.geoJSON(data, {
-          pointToLayer: (_,latlng)=>L.circleMarker(latlng,{
+          pointToLayer: (_,latlng) => L.circleMarker(latlng, {
             radius:4, color:'blue', fillOpacity:0.8
           })
         }).addTo(map);
       });
 
     // 位置＆向き更新
+    let isFull = false;
+    const locateBtn = document.getElementById('locateBtn');
+
     function updatePosition(lat, lon){
       userMarker.setLatLng([lat, lon]);
       if(!isFull) map.setView([lat, lon]);
     }
     navigator.geolocation.watchPosition(pos=>{
-      const {latitude:lat, longitude:lon} = pos.coords;
+      const { latitude:lat, longitude:lon } = pos.coords;
       updatePosition(lat, lon);
-    }, console.error, {enableHighAccuracy:true, maximumAge:1000, timeout:5000});
+    }, console.error, { enableHighAccuracy:true, maximumAge:1000, timeout:5000 });
+
     window.addEventListener('deviceorientationabsolute', e=>{
-      if(e.alpha!=null){
+      if(e.alpha != null){
         document.querySelector('.user-arrow')
           .style.transform = `rotate(${e.alpha}deg)`;
       }
     });
 
-    // 全画面フラグと現在地ボタン
-    let isFull = false;
-    const locateBtn = document.getElementById('locateBtn');
-
-    // メッセージ受信（親 iframe からの切替通知）
+    // iframe からのメッセージ受信
     window.addEventListener('message', e=>{
-      if(e.data==='enterFull' || e.data==='exitFull'){
-        isFull = (e.data==='enterFull');
+      if(e.data === 'enterFull' || e.data === 'exitFull'){
+        isFull = (e.data === 'enterFull');
         if(isFull){
           map.dragging.enable();
           locateBtn.style.display = 'block';
@@ -99,12 +100,12 @@
           map.dragging.disable();
           locateBtn.style.display = 'none';
         }
-        // 大きさ変えたあと再描画
-        setTimeout(()=>map.invalidateSize(), 0);
+        // サイズ再計算
+        setTimeout(()=> map.invalidateSize(), 0);
       }
     });
 
-    // 「現在地に戻る」
+    // 現在地に戻る
     locateBtn.addEventListener('click', ()=>{
       map.setView(userMarker.getLatLng());
     });
