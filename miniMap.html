@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
     html, body { margin:0; padding:0; overflow:hidden; }
-    #miniMap { width:150px; height:150px; position:relative; cursor: default; }
+    #miniMap { width:150px; height:150px; position:fixed; bottom:10px; left:10px; border:1px solid #ccc; z-index:1000; }
     .user-arrow {
       width: 0;
       height: 0;
@@ -16,92 +16,67 @@
       border-bottom: 16px solid red;
       transform-origin: 50% 75%;
     }
-    /* 全画面時のスタイル */
-    .fullscreen #miniMap {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      z-index: 20000;
-      cursor: grab;
+    #locateBtn {
+      position:fixed; bottom:170px; left:10px;
+      padding:6px 10px;
+      background:rgba(0,0,0,0.6);
+      color:#fff; border:none; border-radius:4px;
+      cursor:pointer; z-index:1001;
     }
-    /* ボタン共通 */
-    .btn {
-      position: fixed;
-      padding: 8px 12px;
-      background: rgba(0,0,0,0.6);
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      font-size: 14px;
-      z-index: 20001;
-      cursor: pointer;
-    }
-    /* トグル全画面ボタン */
-    #toggleBtn { bottom: 170px; left: 10px; }
-    /* 現在地ボタン */
-    #locateBtn { display: none; bottom: 80px; right: 20px; }
   </style>
 </head>
 <body>
   <div id="miniMap"></div>
-  <button id="toggleBtn" class="btn">全画面</button>
-  <button id="locateBtn" class="btn">現在地に戻る</button>
+  <button id="locateBtn" style="display:none;">現在地に戻る</button>
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    let isFull = false;
-    const body = document.body;
-    const toggleBtn = document.getElementById('toggleBtn');
-    const locateBtn = document.getElementById('locateBtn');
-
     // 地図初期化
-    const map = L.map('miniMap', { zoomControl: false, attributionControl: false, dragging: false }).setView([0,0], 18);
+    const map = L.map('miniMap', {
+      zoomControl: false,
+      attributionControl: false,
+      dragging: false
+    }).setView([0, 0], 18);
+
+    // 衛星タイル
     L.tileLayer(
       'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
       { maxZoom: 19 }
     ).addTo(map);
 
     // ユーザ方向マーカー
-    const arrowIcon = L.divIcon({ html: '<div class="user-arrow"></div>', iconAnchor: [8, 12], className: '' });
-    const userMarker = L.marker([0,0], { icon: arrowIcon }).addTo(map);
+    const arrowIcon = L.divIcon({
+      html: '<div class="user-arrow"></div>',
+      iconAnchor: [8, 12],
+      className: ''
+    });
+    const userMarker = L.marker([0, 0], { icon: arrowIcon }).addTo(map);
 
     // GeoJSONマーカー
     fetch('line_to_points.geojson')
       .then(res => res.json())
       .then(data => L.geoJSON(data, {
-        pointToLayer: (_, latlng) => L.circleMarker(latlng, { radius:4, color:'blue', fillOpacity:0.8 })
+        pointToLayer: (_, latlng) => L.circleMarker(latlng, { radius: 4, color: 'blue', fillOpacity: 0.8 })
       }).addTo(map));
 
     // 位置＆向き更新
+    const locateBtn = document.getElementById('locateBtn');
     function updatePosition(lat, lon) {
       userMarker.setLatLng([lat, lon]);
-      if (!isFull) map.setView([lat, lon]);
+      map.setView([lat, lon]);
     }
     navigator.geolocation.watchPosition(pos => {
       const { latitude: lat, longitude: lon } = pos.coords;
       updatePosition(lat, lon);
+      locateBtn.style.display = 'block';
     }, console.error, { enableHighAccuracy: true, maximumAge: 1000, timeout: 5000 });
-    window.addEventListener('deviceorientationabsolute', e => {
-      const h = e.alpha;
-      if (h != null) document.querySelector('.user-arrow').style.transform = `rotate(${h}deg)`;
-    });
 
-    // 全画面切替ボタン
-    toggleBtn.addEventListener('click', () => {
-      isFull = !isFull;
-      body.classList.toggle('fullscreen', isFull);
-      toggleBtn.textContent = isFull ? '縮小' : '全画面';
-      if (isFull) {
-        map.dragging.enable();
-        locateBtn.style.display = 'block';
-      } else {
-        map.dragging.disable();
-        locateBtn.style.display = 'none';
+    window.addEventListener('deviceorientationabsolute', e => {
+      if (e.alpha != null) {
+        document.querySelector('.user-arrow')
+          .style.transform = `rotate(${e.alpha}deg)`;
       }
-      setTimeout(() => map.invalidateSize(), 0);
     });
 
     // 現在地に戻る
