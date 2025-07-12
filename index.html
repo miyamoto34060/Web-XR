@@ -133,95 +133,28 @@
 
   <script>
     // トースト表示
-    function showToast(msg, dur=2000){
-      const t = document.getElementById('toast');
-      t.textContent = msg;
-      t.style.display = 'block';
-      clearTimeout(t._hideTimeout);
-      t._hideTimeout = setTimeout(()=> t.style.display = 'none', dur);
-    }
+    function showToast(msg, dur=2000){ const t = document.getElementById('toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(t._hideTimeout); t._hideTimeout = setTimeout(()=> t.style.display = 'none', dur); }
 
     // マーカー配置（AR.js 側）
-    async function placeMarkers(){
-      const root = document.getElementById('sceneRoot');
-      document.querySelectorAll('.calib').forEach(el=>el.remove());
-      try {
-        const res = await fetch('line_to_points.geojson').then(r=>r.json());
-        res.features.forEach(f=>{
-          if(f.geometry.type==='Point'){
-            const [lon,lat] = f.geometry.coordinates;
-            const m = document.createElement('a-sphere');
-            m.classList.add('calib');
-            m.setAttribute('gps-entity-place', `latitude:${lat};longitude:${lon}`);
-            m.setAttribute('radius','1');
-            m.setAttribute('color','red');
-            root.appendChild(m);
-          }
-        });
-      } catch(e){
-        console.error('GeoJSON読み込み失敗', e);
-      }
-    }
-    document.querySelector('a-camera')
-      .addEventListener('gps-camera-update-position', placeMarkers, {once:true});
+    async function placeMarkers(){ const root = document.getElementById('sceneRoot'); document.querySelectorAll('.calib').forEach(el=>el.remove()); try{ const res = await fetch('line_to_points.geojson').then(r=>r.json()); res.features.forEach(f=>{ if(f.geometry.type==='Point'){ const [lon,lat] = f.geometry.coordinates; const m = document.createElement('a-sphere'); m.classList.add('calib'); m.setAttribute('gps-entity-place', `latitude:${lat};longitude:${lon}`); m.setAttribute('radius','1'); m.setAttribute('color','red'); root.appendChild(m);} }); }catch(e){console.error('GeoJSON読み込み失敗', e);} }
+    document.querySelector('a-camera').addEventListener('gps-camera-update-position', placeMarkers, {once:true});
 
     // キャリブレーション処理
-    (function(){
-      const canvas = document.querySelector('canvas');
-      const camEl  = document.querySelector('a-camera');
-      const root3D = document.getElementById('sceneRoot').object3D;
-      const ray    = new THREE.Raycaster();
-      const mouse  = new THREE.Vector2();
-      let pending = null;
-
-      canvas.addEventListener('click', e=>{
-        mouse.x = (e.clientX/window.innerWidth)*2 - 1;
-        mouse.y = -(e.clientY/window.innerHeight)*2 + 1;
-        ray.setFromCamera(mouse, camEl.getObject3D('camera'));
-        const objs = Array.from(document.querySelectorAll('.calib'))
-          .map(el=>el.getObject3D('mesh')).filter(m=>m);
-        const hits = ray.intersectObjects(objs);
-        if(!hits.length){
-          showToast('マーカーをタップしてください');
-          return;
-        }
-        pending = hits[0].object.el;
-        document.getElementById('confirmUI').style.display = 'block';
-      });
-
-      document.getElementById('confirmYes').onclick = ()=>{
-        document.getElementById('confirmUI').style.display = 'none';
-        if(!pending) return;
-        const pos = new THREE.Vector3();
-        pending.object3D.getWorldPosition(pos);
-        const camPos = new THREE.Vector3();
-        document.querySelector('a-camera').object3D.getWorldPosition(camPos);
-        root3D.position.subVectors(pos, camPos);
-        document.querySelectorAll('.calib')
-          .forEach(el=>el.removeAttribute('gps-entity-place'));
-        showToast('キャリブレーション完了');
-        pending = null;
-      };
-      document.getElementById('confirmNo').onclick = ()=>{
-        document.getElementById('confirmUI').style.display = 'none';
-        pending = null;
-        showToast('キャンセルしました');
-      };
+    (function(){ const canvas = document.querySelector('canvas'); const camEl = document.querySelector('a-camera'); const root3D = document.getElementById('sceneRoot').object3D; const ray = new THREE.Raycaster(); const mouse = new THREE.Vector2(); let pending = null;
+      canvas.addEventListener('click', e=>{ mouse.x = (e.clientX/window.innerWidth)*2 - 1; mouse.y = -(e.clientY/window.innerHeight)*2 + 1; ray.setFromCamera(mouse, camEl.getObject3D('camera')); const objs = Array.from(document.querySelectorAll('.calib')).map(el=>el.getObject3D('mesh')).filter(m=>m); const hits = ray.intersectObjects(objs); if(!hits.length){ showToast('マーカーをタップしてください'); return;} pending = hits[0].object.el; document.getElementById('confirmUI').style.display = 'block'; });
+      document.getElementById('confirmYes').onclick = ()=>{ document.getElementById('confirmUI').style.display = 'none'; if(!pending) return; const pos = new THREE.Vector3(); pending.object3D.getWorldPosition(pos); const camPos = new THREE.Vector3(); document.querySelector('a-camera').object3D.getWorldPosition(camPos); root3D.position.subVectors(pos, camPos); document.querySelectorAll('.calib').forEach(el=>el.removeAttribute('gps-entity-place')); showToast('キャリブレーション完了'); pending = null; };
+      document.getElementById('confirmNo').onclick = ()=>{ document.getElementById('confirmUI').style.display = 'none'; pending = null; showToast('キャンセルしました'); };
     })();
 
     // 再読み込み
-    document.getElementById('reloadBtn').onclick = ()=>{
-      showToast('再読み込み中…');
-      location.reload();
-    };
+    document.getElementById('reloadBtn').onclick = ()=>{ showToast('再読み込み中…'); location.reload(); };
 
-    // 全画面切替（即時）
+    // ⇔ボタン 1クリックで全画面切替
     document.getElementById('toggleView').onclick = ()=>{
       const fm = document.getElementById('miniFrame');
       const enter = !fm.classList.contains('fullscreen');
       fm.classList.toggle('fullscreen', enter);
-      // iframe 内の地図にも切替通知
-      fm.contentWindow.postMessage(enter ? 'enterFull' : 'exitFull', '*');
+      // 即時編集なし: iframe内地図は自動追従し、追加ボタン不要
     };
   </script>
 </body>
