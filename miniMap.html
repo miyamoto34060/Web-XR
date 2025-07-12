@@ -8,7 +8,15 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
     html, body { margin:0; padding:0; overflow:hidden; }
-    #miniMap { width:150px; height:150px; }
+    #miniMap { width:150px; height:150px; position:relative; }
+    .user-arrow {
+      width: 0;
+      height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-bottom: 16px solid red;
+      transform-origin: 50% 75%;
+    }
   </style>
 </head>
 <body>
@@ -18,27 +26,43 @@
   <script>
     // 地図初期化 (衛星画像タイル)
     const map = L.map('miniMap', { zoomControl: false, attributionControl: false });
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      maxZoom: 19
-    }).addTo(map);
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom:19 }).addTo(map);
 
-    // マーカー設定
-    const marker = L.circleMarker([0,0], { radius: 6, color: 'red', fillColor: '#f03', fillOpacity: 0.8 }).addTo(map);
+    // ユーザ方向マーカー用カスタムDivIcon
+    const arrowIcon = L.divIcon({
+      className: 'user-arrow-icon',
+      html: '<div class="user-arrow"></div>',
+      iconAnchor: [8, 12]
+    });
+    const userMarker = L.marker([0,0], { icon: arrowIcon, rotationAngle: 0 }).addTo(map);
 
-    // 位置更新関数
-    function updateMiniMap(lat, lon) {
+    // GeoJSONマーカーのレイヤー
+    let geoLayer;
+    fetch('line_to_points.geojson')
+      .then(res=>res.json())
+      .then(data => {
+        geoLayer = L.geoJSON(data, {
+          pointToLayer: (feature, latlng) => L.circleMarker(latlng, { radius:4, color:'blue', fillOpacity:0.8 })
+        }).addTo(map);
+      });
+
+    // 位置更新
+    function updatePosition(lat, lon) {
       map.setView([lat, lon], 18);
-      marker.setLatLng([lat, lon]);
+      userMarker.setLatLng([lat, lon]);
     }
-
-    // 現在地取得
     navigator.geolocation.watchPosition(pos => {
       const { latitude: lat, longitude: lon } = pos.coords;
-      updateMiniMap(lat, lon);
-    }, err => console.error(err), {
-      enableHighAccuracy: true,
-      maximumAge: 1000,
-      timeout: 5000
+      updatePosition(lat, lon);
+    }, err => console.error(err), { enableHighAccuracy:true, maximumAge:1000, timeout:5000 });
+
+    // デバイスの向き取得
+    window.addEventListener('deviceorientationabsolute', e => {
+      const heading = e.alpha; // 0-360
+      if (heading !== null) {
+        const arrow = document.querySelector('.user-arrow');
+        arrow.style.transform = `rotate(${heading}deg)`;
+      }
     });
   </script>
 </body>
