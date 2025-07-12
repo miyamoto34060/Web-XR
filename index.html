@@ -5,48 +5,48 @@
   <title>WebXR + Three.js AR補正</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
 
-  <!-- Three.js + WebXR Button -->
+  <!-- Three.js と WebXR ボタン -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/webxr/ARButton.js"></script>
 
   <style>
-    /* miniMap iframe styling */
+    /* ミニマップ用iframeスタイル */
     #miniFrame {
-      position: absolute;
+      position: fixed;
       top: 10px;
       right: 10px;
       width: 150px;
       height: 150px;
       border: none;
-      z-index: 10000;
+      z-index: 10001;
     }
     html, body { margin:0; overflow:hidden; }
     a-scene    { height:100vh; width:100vw; }
 
-    /* Reload button */
+    /* 再読み込みボタン */
     #reloadBtn {
       position: fixed; top:10px; right:10px; z-index:10000;
       padding:8px 12px; background:rgba(0,0,0,0.6);
       color:#fff; border:none; border-radius:4px; font-size:14px;
     }
 
-    /* Toast */
+    /* トースト表示 */
     #toast {
       position: fixed; top:10px; left:50%;
       transform: translateX(-50%);
       background:rgba(0,0,0,0.7); color:#fff;
       padding:6px 12px; border-radius:4px;
-      display:none; z-index:10001; font-size:14px;
+      display:none; z-index:10002; font-size:14px;
     }
 
-    /* Confirmation UI */
+    /* 確認ダイアログ */
     #confirmUI {
       position: fixed; top:50%; left:50%;
       transform: translate(-50%,-50%);
       background:rgba(0,0,0,0.8); color:#fff;
       padding:16px; border-radius:8px;
-      display:none; z-index:10002; text-align:center;
+      display:none; z-index:10003; text-align:center;
     }
     #confirmUI button {
       margin:8px; padding:6px 12px;
@@ -58,7 +58,7 @@
 </head>
 
 <body>
-  <!-- miniMap embed -->
+  <!-- ミニマップ埋め込み -->
   <iframe id="miniFrame" src="miniMap.html"></iframe>
 
   <div id="toast"></div>
@@ -69,14 +69,14 @@
     <button id="confirmNo">いいえ</button>
   </div>
 
-  <!-- AR.js / A-Frame scene -->
+  <!-- AR.js / A-Frame シーン -->
   <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: true;">
     <a-camera gps-camera rotation-reader></a-camera>
     <a-entity id="sceneRoot"></a-entity>
   </a-scene>
 
   <script>
-    // Toast helper
+    // トースト表示ヘルパー
     function showToast(msg, dur=2000){
       const t=document.getElementById('toast');
       t.innerText=msg; t.style.display='block';
@@ -84,7 +84,7 @@
       t._hideTimeout=setTimeout(()=>t.style.display='none',dur);
     }
 
-    // Place markers once GPS first fixes
+    // GPS初期取得後にマーカー配置
     async function placeMarkers(){
       const root = document.getElementById('sceneRoot');
       document.querySelectorAll('.calib').forEach(el=>el.remove());
@@ -108,7 +108,7 @@
     document.querySelector('a-camera')
       .addEventListener('gps-camera-update-position', placeMarkers, {once:true});
 
-    // Tap calibration
+    // タップでキャリブレーション
     (function(){
       const canvas = document.querySelector('canvas');
       const camEl  = document.querySelector('a-camera');
@@ -153,12 +153,12 @@
       };
     })();
 
-    // Reload
+    // 再読み込み機能
     document.getElementById('reloadBtn').onclick = ()=>{
       showToast('再読み込み中…'); location.reload();
     };
 
-    // Auto reload on large move
+    // 大幅移動検出で自動リロード
     let initLat=null, initLon=null, TH=100;
     function hav(a,b,c,d){
       const R=6371000, r=Math.PI/180;
